@@ -1,0 +1,1155 @@
+<script>
+    (function() {
+        const ADMIN_PASSWORD = '12345678';
+        const DATA_FILES = {
+            definitions: 'instrumentDefinitions.json',
+            offsets: 'savedLabelOffsets.json',
+            logo: 'logoImage.json',
+            data: 'allData.json',
+            geojson: 'geojsonData.json',
+            updated: 'lastUpdated.json'
+        };
+        
+        let isControlsUnlocked = false;
+        let lang = 'zh';
+
+        const translations = {
+            zh: {
+                appTitle: '全国装机地图',
+                selectYear: '选择年份',
+                selectMonth: '选择月份',
+                allInstruments: '所有仪器',
+                controlPanel: '控制面板',
+                mapEdit: '地图编辑',
+                addInstrumentType: '新增仪器类型',
+                editInstrumentTypes: '编辑仪器类型',
+                mapAdminButton: '地图管理',
+                dataUploadButton: '装机数据上传',
+                dashboardBtn: '仪表盘',
+                detailsBtn: '明细',
+                exportStandalone: '发布单机页面',
+                mapTitle: 'IOA仪器中国装机地图',
+                totalCount: (count) => `全国装机数量: ${count}`,
+                lastUpdated: (date) => date ? `数据更新时间: ${new Date(date).toLocaleString()}` : '数据未更新',
+                detailsTitle: '仪器明细',
+                detailsPlaceholder: '请在地图上点击一个省份来查看装机明细。',
+                detailsTableTitle: (name, count) => `明细: ${name} (${count} 台)`,
+                tableHeaderDate: '日期',
+                tableHeaderHospital: '医院',
+                tableHeaderProduct: '产品信息',
+                tableHeaderInstallInfo: '安装信息',
+                save: '保存',
+                cancel: '取消',
+                mapAdminTitle: '地图管理',
+                dataUploadTitle: '装机数据上传',
+                uploadDataFile: '上传数据文件 (.csv)',
+                uploadGeojsonData: '上传地理数据文件 (.geojson)',
+                uploadLogo: '上传Logo图片 (.png, .jpg, .jpeg)',
+                addInstrumentTitle: '新增仪器类型',
+                instrumentTypeName: '仪器类型名称',
+                keywordsLabel: '关键词 (多个用逗号分隔)',
+                uploadImage: '上传图片 (.png, .jpg, .jpeg)',
+                delete: '删除',
+                passwordPromptTitle: '输入密码',
+                passwordLabel: '请输入密码',
+                confirm: '确认',
+                messageFileFailed: '文件读取失败。',
+                messageGeojsonSuccess: 'GeoJSON 文件上传成功！(请将生成的 geojsonData.json 上传到服务器)',
+                messageGeojsonError: '解析 GeoJSON 文件失败，请检查文件格式。',
+                messageCsvMissingCols: (cols) => `CSV 文件缺少必需的列: ${cols}。请检查文件头部。`,
+                messageCsvSuccess: '数据文件上传成功！(请将生成的 allData.json 和 lastUpdated.json 上传到服务器)',
+                messageCsvError: '解析 CSV 文件失败，请检查文件格式。',
+                messageLogoError: '上传Logo图片失败。',
+                messageFileRequired: '请至少选择一个文件进行上传。',
+                messagePasswordCorrect: '密码正确！',
+                messagePasswordError: '密码错误，请重试。',
+                messageUnlockRequired: '请先解锁控制面板以访问此功能。',
+                messageAllInstrumentsImmutable: '“所有仪器”按钮不可编辑。',
+                messageInstrumentUpdated: '仪器类型已更新！(请将生成的 instrumentDefinitions.json 上传到服务器)',
+                messageInstrumentAdded: '新增仪器类型已保存！(请将生成的 instrumentDefinitions.json 上传到服务器)',
+                messageInstrumentDeleted: '仪器类型已删除！(请将生成的 instrumentDefinitions.json 上传到服务器)',
+                messageSaveLocationSuccess: '位置已保存！(请将生成的 savedLabelOffsets.json 上传到服务器)',
+                messageUploadDataFirst: '请先上传 GeoJSON 和 CSV 数据文件。',
+                messageNameKeywordsRequired: '请填写仪器类型名称和至少一个关键词。',
+                noDataMessage: '当前筛选条件下没有数据',
+                selectYearPrompt: '请选择具体的年份',
+                dashboardTitle: '安装数量仪表盘',
+                exportSuccess: '单机页面已生成并下载！'
+            },
+            en: {
+                appTitle: 'IOA Installed Base Map',
+                selectYear: 'Select Year',
+                selectMonth: 'Select Month',
+                allInstruments: 'All Instruments',
+                controlPanel: 'Control Panel',
+                mapEdit: 'Map Edit',
+                addInstrumentType: 'Add Instrument Type',
+                editInstrumentTypes: 'Edit Instrument Types',
+                mapAdminButton: 'Map Management',
+                dataUploadButton: 'Data Upload',
+                dashboardBtn: 'Dashboard',
+                detailsBtn: 'Details',
+                exportStandalone: 'Export Standalone Page',
+                mapTitle: 'IOA Instrument Installation Map',
+                totalCount: (count) => `Total Installed Count: ${count}`,
+                lastUpdated: (date) => date ? `Last Updated: ${new Date(date).toLocaleString()}` : 'Data not updated',
+                detailsTitle: 'Instrument Details',
+                detailsPlaceholder: 'Click a province on the map to view installation details.',
+                detailsTableTitle: (name, count) => `Details: ${name} (${count} units)`,
+                tableHeaderDate: 'Date',
+                tableHeaderHospital: 'Hospital',
+                tableHeaderProduct: 'Product Info',
+                tableHeaderInstallInfo: 'Install Info',
+                save: 'Save',
+                cancel: 'Cancel',
+                mapAdminTitle: 'Map Management',
+                dataUploadTitle: 'Data Upload',
+                uploadDataFile: 'Upload Data File (.csv)',
+                uploadGeojsonData: 'Upload GeoJSON File (.geojson)',
+                uploadLogo: 'Upload Logo Image (.png, .jpg, .jpeg)',
+                addInstrumentTitle: 'Add Instrument Type',
+                instrumentTypeName: 'Instrument Type Name',
+                keywordsLabel: 'Keywords (comma-separated)',
+                uploadImage: 'Upload Image (.png, .jpg, .jpeg)',
+                delete: 'Delete',
+                passwordPromptTitle: 'Enter Password',
+                passwordLabel: 'Enter Password',
+                confirm: 'Confirm',
+                messageFileFailed: 'File read failed.',
+                messageGeojsonSuccess: 'GeoJSON file uploaded successfully! (Please upload the generated geojsonData.json to the server)',
+                messageGeojsonError: 'Failed to parse GeoJSON file. Please check file format.',
+                messageCsvMissingCols: (cols) => `CSV file is missing required columns: ${cols}. Please check file header.`,
+                messageCsvSuccess: 'Data file uploaded successfully! (Please upload the generated allData.json and lastUpdated.json to the server)',
+                messageCsvError: 'Failed to parse CSV file. Please check file format.',
+                messageLogoError: 'Failed to upload logo image.',
+                messageFileRequired: 'Please select at least one file to upload.',
+                messagePasswordCorrect: 'Password is correct!',
+                messagePasswordError: 'Incorrect password, please try again.',
+                messageUnlockRequired: 'Please unlock the control panel to access this feature.',
+                messageAllInstrumentsImmutable: '"All Instruments" button cannot be edited.',
+                messageInstrumentUpdated: 'Instrument type updated successfully! (Please upload the generated instrumentDefinitions.json to the server)',
+                messageInstrumentAdded: 'New instrument type saved successfully! (Please upload the generated instrumentDefinitions.json to the server)',
+                messageInstrumentDeleted: 'Instrument type deleted! (Please upload the generated instrumentDefinitions.json to the server)',
+                messageSaveLocationSuccess: 'Locations saved! (Please upload the generated savedLabelOffsets.json to the server)',
+                messageUploadDataFirst: 'Please upload GeoJSON and CSV data files first.',
+                messageNameKeywordsRequired: 'Please fill in the instrument type name and at least one keyword.',
+                noDataMessage: 'No data under current filter conditions',
+                selectYearPrompt: 'Please select a specific year',
+                dashboardTitle: 'Installation Dashboard',
+                exportSuccess: 'Standalone page generated and downloaded!'
+            }
+        };
+
+        // --- Static configurations and global state ---
+        let map, geojsonLayer, markerGroup, currentDraggedOffsets = {};
+        const DEFAULT_LOGO_IMAGE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChAKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAEBAQICASIAAhEBAQED/8QAHwAAAQUBAQEBAQEBAAAAAAAAAAECAwQFBgcICQoLAQACAgMVBQEBAQEBAAAAAAAAAAECAwQFBgcICQoLEAAB';
+        let state = {
+            instrumentDefinitions: [],
+            savedLabelOffsets: {},
+            logoImage: DEFAULT_LOGO_IMAGE,
+            allData: [],
+            geojsonData: null,
+            lastUpdated: null,
+            isDashboardVisible: false
+        };
+        const expectedDataColumns = ['日期时间', '省份拼音', '产品信息', '医院', '安装信息'];
+        let isInstrumentEditingMode = false;
+        let selectedProvincePinyin = null;
+
+        // Default label offsets
+        const defaultLabelOffsets = {
+            'gansu': [38.5, 103], 'neimenggu': [44.5, 110], 'shaanxi': [35.5, 109.5],
+            'taiwan': [23.8, 121], 'hainan': [19.2, 109.8], 'hongkong': [22.25, 114.16],
+            'macau': [22.19, 113.54]
+        };
+
+        // --- DOM element references ---
+        const mapAdminModal = document.getElementById('map-admin-modal');
+        const mapAdminBtn = document.getElementById('map-admin-btn');
+        const mapAdminCloseBtn = document.getElementById('map-admin-close-btn');
+        const saveMapAdminBtn = document.getElementById('save-map-admin-btn');
+        const dataUploadBtn = document.getElementById('data-upload-btn');
+        const dataUploadModal = document.getElementById('data-upload-modal');
+        const dataUploadCloseBtn = document.getElementById('data-upload-close-btn');
+        const saveMapDataBtn = document.getElementById('save-data-upload-btn');
+        const dataUploadInput = document.getElementById('data-upload');
+        const geojsonUploadInput = document.getElementById('geojson-upload');
+        const logoUploadInput = document.getElementById('logo-upload');
+        
+        const addInstrumentModal = document.getElementById('add-instrument-modal');
+        const addInstrumentBtn = document.getElementById('add-instrument-btn');
+        const addInstrumentCloseBtn = document.getElementById('add-instrument-close-btn');
+        const saveAddBtn = document.getElementById('save-add-btn');
+        const deleteInstrumentBtn = document.getElementById('delete-instrument-btn');
+        const instrumentModalTitle = document.getElementById('instrument-modal-title');
+        const instrumentNameInput = document.getElementById('instrument-name');
+        const keywordsInput = document.getElementById('keywords');
+        const imageUploadInput = document.getElementById('image-upload');
+        const editInstrumentTypesBtn = document.getElementById('edit-instrument-types-btn');
+        
+        const editModeBtn = document.getElementById('edit-mode-btn');
+        const editControls = document.getElementById('edit-controls');
+        const saveEditBtn = document.getElementById('save-edit-btn');
+        const cancelEditBtn = document.getElementById('cancel-edit-btn');
+        const logoDisplay = document.getElementById('logo-display');
+        const totalCountDisplay = document.getElementById('total-count-display');
+        const lastUpdatedDisplay = document.getElementById('last-updated-display');
+        const filterButtonsContainer = document.getElementById('filter-buttons-container');
+        const mapElement = document.getElementById('map');
+        const messageModal = document.getElementById('message-modal');
+        const messageText = document.getElementById('message-text');
+        const passwordModal = document.getElementById('password-modal');
+        const passwordCloseBtn = document.getElementById('password-close-btn');
+        const passwordInput = document.getElementById('password-input');
+        const passwordSubmitBtn = document.getElementById('password-submit-btn');
+        const yearFilter = document.getElementById('year-filter');
+        const monthFilter = document.getElementById('month-filter');
+        const detailsContainer = document.getElementById('details-table-content');
+        const exportStandaloneBtn = document.getElementById('export-standalone-btn');
+
+        const collapsibleControls = document.getElementById('collapsible-controls');
+
+        const langZhBtn = document.getElementById('lang-zh-btn');
+        const langEnBtn = document.getElementById('lang-en-btn');
+
+        // New dashboard elements
+        const viewToggleBtn = document.getElementById('view-toggle-btn');
+        const detailsViewTitle = document.getElementById('details-view-title');
+        const detailsTableContent = document.getElementById('details-table-content');
+        const dashboardContent = document.getElementById('dashboard-content');
+        const dashboardChartContainer = document.getElementById('dashboard-chart-container');
+
+        let editingInstrument = null;
+
+        // --- Utility Functions ---
+        
+        function downloadJSON(data, filename) {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", filename);
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        function setLanguage(newLang) {
+            lang = newLang;
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    const value = translations[lang][key];
+                    if (typeof value === 'function') {
+                        // Dynamic content handled elsewhere
+                    } else {
+                        element.textContent = value;
+                    }
+                }
+            });
+            // Ensure after language change, UI updates
+            populateDateFilters(); 
+            handleFilterChanges(); 
+        }
+
+        function showMessage(messageKey, ...args) {
+            let message = translations[lang][messageKey];
+            if (typeof message === 'function') {
+                message = message(...args);
+            }
+            messageText.innerHTML = message.replace(/\n/g, '<br>');
+            messageModal.style.display = 'flex';
+            setTimeout(() => {
+                messageModal.style.display = 'none';
+            }, 8000); 
+        }
+
+        async function readFileAsDataURL(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => resolve(event.target.result);
+                reader.onerror = (e) => reject('messageFileFailed');
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function readFileAsText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (event) => resolve(event.target.result);
+                reader.onerror = (e) => reject('messageFileFailed');
+                reader.readAsText(file);
+            });
+        }
+
+        async function handleGeoJSONUpload(file) {
+            if (!file) return;
+            try {
+                const text = await readFileAsText(file);
+                state.geojsonData = JSON.parse(text);
+                downloadJSON(state.geojsonData, DATA_FILES.geojson);
+                showMessage('messageGeojsonSuccess');
+            } catch (e) {
+                showMessage('messageGeojsonError');
+                console.error(e);
+            }
+        }
+
+        async function handleCSVUpload(file) {
+            return new Promise((resolve, reject) => {
+                if (!file) {
+                    reject('messageFileRequired');
+                    return;
+                }
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    transformHeader: (header) => {
+                        const trimmedHeader = header.trim().toLowerCase();
+                        if (trimmedHeader.includes('日期') || trimmedHeader.includes('date')) return '日期时间';
+                        if (trimmedHeader.includes('省份') || trimmedHeader.includes('province') || trimmedHeader.includes('省')) return '省份拼音';
+                        if (trimmedHeader.includes('产品') || trimmedHeader.includes('信息') || trimmedHeader.includes('描述') || trimmedHeader.includes('product') || trimmedHeader.includes('info')) return '产品信息';
+                        if (trimmedHeader.includes('医院') || trimmedHeader.includes('hospital')) return '医院';
+                        if (trimmedHeader.includes('安装') || trimmedHeader.includes('installed')) return '安装信息';
+                        return header;
+                    },
+                    complete: async (results) => {
+                        const columns = results.meta.fields;
+                        console.log("Parsed CSV headers:", columns); 
+                        const missingCols = expectedDataColumns.filter(col => !columns.includes(col));
+                        if (missingCols.length > 0) {
+                            reject(translations[lang]['messageCsvMissingCols'](missingCols.join(', ')));
+                            return;
+                        }
+
+                        state.allData = results.data.map(row => {
+                            const dateTime = row['日期时间'];
+                            if (dateTime) {
+                                const [date, time] = dateTime.split(' ');
+                                row['日期'] = date || '';
+                                row['时间'] = time || '';
+                            }
+                            return row;
+                        });
+                        
+                        const now = new Date().toISOString();
+                        state.lastUpdated = now;
+                        
+                        downloadJSON(state.allData, DATA_FILES.data);
+                        downloadJSON({ lastUpdated: now }, DATA_FILES.updated);
+                        
+                        updateLastUpdatedDisplay();
+                        resolve("messageCsvSuccess");
+                    },
+                    error: (error) => {
+                        reject('messageCsvError');
+                        console.error('CSV Parsing Error:', error);
+                    }
+                });
+            });
+        }
+        
+        function updateLastUpdatedDisplay() {
+            const lastUpdated = state.lastUpdated; 
+            lastUpdatedDisplay.textContent = translations[lang]['lastUpdated'](lastUpdated);
+        }
+
+        function populateDateFilters() {
+            const years = new Set(['所有年份']);
+            const months = new Set(['所有月份']);
+            state.allData.forEach(row => {
+                const date = new Date(row['日期时间']);
+                if (!isNaN(date.getTime())) {
+                    years.add(date.getFullYear().toString());
+                    months.add((date.getMonth() + 1).toString().padStart(2, '0'));
+                }
+            });
+
+            const sortedYears = Array.from(years).sort().reverse();
+            yearFilter.innerHTML = sortedYears.map(y => `<option value="${y}">${y}</option>`).join('');
+
+            const sortedMonths = Array.from(months).sort();
+            monthFilter.innerHTML = sortedMonths.map(m => `<option value="${m}">${m}</option>`).join('');
+            
+            const allYearsOption = yearFilter.querySelector('option[value="所有年份"]');
+            if (allYearsOption) {
+                allYearsOption.textContent = translations[lang]['selectYear'].includes('年') ? '所有年份' : 'All Years';
+                yearFilter.value = '所有年份'; 
+            }
+            
+            const allMonthsOption = monthFilter.querySelector('option[value="所有月份"]');
+            if (allMonthsOption) {
+                allMonthsOption.textContent = translations[lang]['selectMonth'].includes('月') ? '所有月份' : 'All Months';
+                monthFilter.value = '所有月份'; 
+            }
+        }
+        
+        function getFilteredData() {
+            const selectedInstrument = document.querySelector('.filter-button.active')?.dataset.name;
+            const selectedYear = yearFilter.value;
+            const selectedMonth = monthFilter.value;
+
+            let filteredData = state.allData;
+
+            if (selectedYear !== '所有年份') {
+                filteredData = filteredData.filter(row => {
+                    const date = new Date(row['日期时间']);
+                    return !isNaN(date.getTime()) && date.getFullYear().toString() === selectedYear;
+                });
+            }
+            if (selectedMonth !== '所有月份') {
+                filteredData = filteredData.filter(row => {
+                    const date = new Date(row['日期时间']);
+                    return !isNaN(date.getTime()) && (date.getMonth() + 1).toString().padStart(2, '0') === selectedMonth;
+                });
+            }
+
+            if (selectedInstrument !== 'all') {
+                const definition = state.instrumentDefinitions.find(def => def.name === selectedInstrument);
+                if (definition) {
+                    const keywords = definition.keywords.map(k => k.toLowerCase().trim());
+                    filteredData = filteredData.filter(row => {
+                        const productInfo = row['产品信息']?.toLowerCase()?.trim() || '';
+                        return keywords.some(keyword => productInfo.includes(keyword));
+                    });
+                }
+            }
+            // Apply province filter if selected
+            if (selectedProvincePinyin) {
+                 filteredData = filteredData.filter(row => row['省份拼音']?.toLowerCase()?.trim() === selectedProvincePinyin);
+            }
+            return filteredData;
+        }
+
+        function renderInstrumentDetails(provincePinyin) {
+            const filteredData = getFilteredData();
+            const provinceData = filteredData.filter(row => row['省份拼音']?.toLowerCase()?.trim() === provincePinyin);
+            
+            let html = '';
+            if (provinceData.length > 0) {
+                let provinceName = '';
+                geojsonLayer.eachLayer(layer => {
+                    if (layer.feature.properties.pinyin?.toLowerCase().trim() === provincePinyin) {
+                        provinceName = (lang === 'en' ? layer.feature.properties.pinyin : layer.feature.properties.name);
+                    }
+                });
+                
+                html = `<h3 class="font-bold text-lg mb-2">${translations[lang]['detailsTableTitle'](provinceName, provinceData.length)}</h3>`;
+                
+                html += `<div class="bg-gray-700 p-4 rounded-lg overflow-x-auto">
+                            <table class="details-table">
+                                <thead>
+                                    <tr>
+                                        <th>${translations[lang]['tableHeaderDate']}</th>
+                                        <th>${translations[lang]['tableHeaderHospital']}</th>
+                                        <th>${translations[lang]['tableHeaderProduct']}</th>
+                                        <th>${translations[lang]['tableHeaderInstallInfo']}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                provinceData.forEach(row => {
+                    html += `<tr>
+                                    <td>${row['日期'] || 'N/A'}</td>
+                                    <td>${row['医院'] || 'N/A'}</td>
+                                    <td>${row['产品信息'] || 'N/A'}</td>
+                                    <td>${row['安装信息'] || 'N/A'}</td>
+                               </tr>`;
+                });
+                html += `</tbody></table></div>`;
+            } else {
+                html = `<div class="p-4 text-center">${translations[lang]['detailsPlaceholder']}</div>`;
+            }
+            detailsContainer.innerHTML = html;
+        }
+
+        function getInstallationDataByDate() {
+            const filteredData = getFilteredData();
+            const selectedYear = yearFilter.value;
+            const selectedMonth = monthFilter.value;
+            const isYearlyView = selectedYear === '所有年份';
+            const isMonthlyView = selectedMonth === '所有月份';
+            
+            const counts = {};
+
+            if (isYearlyView) {
+                const allYears = Array.from(new Set(state.allData.map(d => new Date(d['日期时间']).getFullYear()))).filter(y => !isNaN(y)).sort();
+                filteredData.forEach(row => {
+                    const date = new Date(row['日期时间']);
+                    if (!isNaN(date.getTime())) {
+                        const year = date.getFullYear().toString();
+                        counts[year] = (counts[year] || 0) + 1;
+                    }
+                });
+                return allYears.map(year => ({
+                    date: d3.timeParse('%Y')(year),
+                    count: counts[year] || 0
+                }));
+
+            } else if (isMonthlyView) {
+                filteredData.forEach(row => {
+                    const date = new Date(row['日期时间']);
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    counts[month] = (counts[month] || 0) + 1;
+                });
+                
+                const data = [];
+                for (let i = 1; i <= 12; i++) {
+                    const monthStr = String(i).padStart(2, '0');
+                    const date = new Date(selectedYear, i-1, 1);
+                    data.push({
+                        date: date,
+                        count: counts[monthStr] || 0
+                    });
+                }
+                return data;
+
+            } else {
+                filteredData.forEach(row => {
+                    const date = new Date(row['日期时间']);
+                    const day = String(date.getDate()).padStart(2, '0');
+                    counts[day] = (counts[day] || 0) + 1;
+                });
+
+                const data = [];
+                const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dayStr = String(i).padStart(2, '0');
+                    const date = new Date(selectedYear, selectedMonth - 1, i);
+                    data.push({
+                        date: date,
+                        count: counts[dayStr] || 0
+                    });
+                }
+                return data;
+            }
+        }
+
+        function renderDashboardChart() {
+            const data = getInstallationDataByDate();
+            dashboardChartContainer.innerHTML = '';
+            
+            if (data.length === 0) {
+                dashboardChartContainer.innerHTML = `<div class="p-4 text-center text-gray-400">${translations[lang]['noDataMessage']}</div>`;
+                return;
+            }
+
+            const margin = {top: 40, right: 30, bottom: 40, left: 50},
+                width = dashboardContent.clientWidth - margin.left - margin.right,
+                height = dashboardChartContainer.clientHeight - margin.top - margin.bottom;
+
+            const svg = d3.select(dashboardChartContainer)
+                .append('svg')
+                .attr('width', width + margin.left + margin.right)
+                .attr('height', height + margin.top + margin.bottom)
+                .append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            const x = d3.scaleTime()
+                .domain(d3.extent(data, d => d.date))
+                .range([0, width]);
+            
+            const selectedYear = yearFilter.value;
+            const selectedMonth = monthFilter.value;
+            let xTicks, xFormat;
+            
+            if (selectedYear === '所有年份') {
+                xTicks = d3.timeYear.every(1);
+                xFormat = d3.timeFormat('%Y');
+            } else if (selectedMonth !== '所有月份') {
+                xTicks = d3.timeDay.every(1);
+                xFormat = d3.timeFormat('%d');
+            } else {
+                xTicks = d3.timeMonth.every(1);
+                xFormat = d3.timeFormat('%m');
+            }
+
+            svg.append('g')
+                .attr('transform', `translate(0,${height})`)
+                .call(d3.axisBottom(x)
+                    .ticks(xTicks)
+                    .tickFormat(xFormat)
+                )
+                .selectAll('text')
+                .attr('fill', '#9ca3af')
+                .style('text-anchor', 'end')
+                .attr('transform', 'rotate(-45)');
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data, d => d.count)])
+                .range([height, 0]);
+            svg.append('g')
+                .call(d3.axisLeft(y).ticks(Math.min(5, d3.max(data, d => d.count))))
+                .selectAll('text')
+                .attr('fill', '#9ca3af');
+
+            svg.append('path')
+                .datum(data)
+                .attr('fill', 'none')
+                .attr('stroke', '#4299e1')
+                .attr('stroke-width', 2.5)
+                .attr('d', d3.line()
+                    .x(d => x(d.date))
+                    .y(d => y(d.count))
+                );
+
+            const points = svg.selectAll('.dot')
+                .data(data)
+                .enter().append('g')
+                .attr('class', 'dot-group')
+                .attr('transform', d => `translate(${x(d.date)}, ${y(d.count)})`);
+
+            points.append('circle')
+                .attr('r', 5)
+                .attr('fill', '#4299e1');
+
+            points.append('text')
+                .attr('dx', '-0.5em')
+                .attr('dy', '-1em')
+                .attr('font-size', '12px')
+                .attr('fill', '#fff')
+                .attr('text-anchor', 'end')
+                .text(d => d.count);
+        }
+
+        // --- Map Initialization & Rendering Logic ---
+        function initMap() {
+            if (map && map.getContainer()) {
+                map.remove();
+            }
+            map = L.map('map', {
+                center: [35.8617, 104.1954],
+                zoom: 4,
+                zoomControl: false,
+                minZoom: 4,
+                maxZoom: 6,
+                attributionControl: false
+            });
+
+            L.rectangle([[-90, -180], [90, 180]], {
+                color: '#000', weight: 1, fillColor: '#000', fillOpacity: 1
+            }).addTo(map);
+
+            markerGroup = L.layerGroup().addTo(map);
+
+            map.invalidateSize();
+        }
+
+        function renderMap(filteredData, isEditable = false) {
+            if (geojsonLayer) {
+                geojsonLayer.remove();
+            }
+            markerGroup.clearLayers();
+
+            if (!state.geojsonData || state.allData.length === 0) {
+                mapElement.innerHTML = `<div class="p-4 text-center text-white" data-i18n="uploadDataFirst">${translations[lang]['uploadDataFirst']}</div>`;
+                return;
+            }
+
+            const provinceCounts = filteredData.reduce((acc, row) => {
+                const provincePinyin = row['省份拼音']?.toLowerCase()?.trim();
+                if (provincePinyin) {
+                    acc[provincePinyin] = (acc[provincePinyin] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            if (totalCountDisplay) {
+                totalCountDisplay.innerHTML = translations[lang]['totalCount'](filteredData.length);
+            }
+
+            geojsonLayer = L.geoJSON(state.geojsonData, {
+                style: (feature) => {
+                    const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                    const style = {
+                        fillColor: '#0077b6',
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        fillOpacity: 0.7,
+                    };
+                    if (pinyin && pinyin === selectedProvincePinyin) {
+                        style.fillColor = '#800080';
+                        style.fillOpacity = 1;
+                    }
+                    return style;
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.on('mouseover', () => {
+                         layer.setStyle({
+                             fillOpacity: 0.9,
+                         });
+                    });
+                    layer.on('mouseout', () => {
+                        const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                        if (pinyin !== selectedProvincePinyin) {
+                            layer.setStyle({
+                                fillOpacity: 0.7,
+                            });
+                        }
+                    });
+                    
+                    const provincePinyin = feature.properties.pinyin?.toLowerCase().trim();
+                    const provinceName = lang === 'en' ? feature.properties.pinyin : feature.properties.name;
+                    const count = provinceCounts[provincePinyin] || 0;
+                    
+                    let center = layer.getBounds().getCenter();
+                    let labelPos = state.savedLabelOffsets[provincePinyin] || defaultLabelOffsets[provincePinyin] || center;
+
+                    // Only create markers for provinces with a count greater than 0, or in edit mode
+                    if (count > 0 || isEditable) {
+                        const label = L.divIcon({
+                            className: 'text-white font-bold text-center transparent-label',
+                            html: `<div>${provinceName}<br>${count}</div>`,
+                            iconSize: [100, 36],
+                        });
+                        
+                        const marker = L.marker(labelPos, { 
+                            icon: label,
+                            draggable: isEditable,
+                            provincePinyin: provincePinyin
+                        }).addTo(markerGroup);
+
+                        if (isEditable) {
+                            marker.on('dragstart', () => {
+                                map.dragging.disable();
+                            });
+                            marker.on('dragend', (e) => {
+                                const newPos = e.target.getLatLng();
+                                currentDraggedOffsets[provincePinyin] = [newPos.lat, newPos.lng];
+                                map.dragging.enable();
+                            });
+                        }
+                    }
+                    if (!isEditable) {
+                        layer.on('click', () => {
+                            const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                            if (pinyin === selectedProvincePinyin) {
+                                // Deselect the current province
+                                selectedProvincePinyin = null;
+                            } else {
+                                // Select a new province
+                                selectedProvincePinyin = pinyin;
+                            }
+                            handleFilterChanges();
+                        });
+                    }
+                }
+            }).addTo(map);
+        }
+
+        function updateUI() {
+            // First, update the map
+            initMap();
+            const filteredData = getFilteredData();
+            renderMap(filteredData);
+            
+            // Then, update the details/dashboard view
+            if (state.isDashboardVisible) {
+                detailsViewTitle.textContent = translations[lang]['dashboardTitle'];
+                viewToggleBtn.querySelector('span').textContent = translations[lang]['detailsBtn'];
+                detailsTableContent.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+                renderDashboardChart();
+            } else {
+                detailsViewTitle.textContent = translations[lang]['detailsTitle'];
+                viewToggleBtn.querySelector('span').textContent = translations[lang]['dashboardBtn'];
+                detailsTableContent.classList.remove('hidden');
+                dashboardContent.classList.add('hidden');
+                if (selectedProvincePinyin) {
+                    renderInstrumentDetails(selectedProvincePinyin);
+                } else {
+                    detailsContainer.innerHTML = `<div class="bg-gray-800 rounded-lg p-4"><span data-i18n="detailsPlaceholder">${translations[lang]['detailsPlaceholder']}</span></div>`;
+                }
+            }
+             // Ensure map resizes after UI changes
+            if (map) {
+                map.invalidateSize();
+            }
+        }
+        
+        function renderFilterButtons() {
+            // Remove existing event listener before clearing content to prevent memory leaks
+            filterButtonsContainer.removeEventListener('click', handleFilterButtonClicks);
+
+            filterButtonsContainer.innerHTML = `<button id="all-instruments-btn" class="filter-button active" data-name="all" data-i18n="allInstruments">${translations[lang]['allInstruments']}</button>`;
+
+            document.getElementById('all-instruments-btn').addEventListener('click', () => {
+                document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                document.getElementById('all-instruments-btn').classList.add('active');
+                handleFilterChanges();
+            });
+
+            state.instrumentDefinitions.forEach((def, index) => {
+                const button = document.createElement('button');
+                button.className = 'filter-button flex flex-col items-center p-2';
+                button.setAttribute('data-name', def.name);
+                button.setAttribute('data-index', index);
+                button.innerHTML = `
+                    ${def.image ? `<img src="${def.image}" class="w-16 h-16 object-contain mb-1">` : ''}
+                    <span class="text-sm">${def.name}</span>
+                `;
+                filterButtonsContainer.appendChild(button);
+            });
+            
+            document.getElementById('all-instruments-btn').classList.add('active');
+            filterButtonsContainer.addEventListener('click', handleFilterButtonClicks);
+        }
+
+        function handleFilterButtonClicks(e) {
+             const clickedButton = e.target.closest('.filter-button');
+             if (!clickedButton) return;
+             
+             if (isInstrumentEditingMode) {
+                 const instrumentName = clickedButton.getAttribute('data-name');
+                 if (instrumentName === 'all') {
+                     showMessage('messageAllInstrumentsImmutable');
+                     return;
+                 }
+                 
+                 const definition = state.instrumentDefinitions.find(def => def.name === instrumentName);
+                 if (definition) {
+                     editingInstrument = definition;
+                     instrumentModalTitle.textContent = translations[lang]['editInstrumentTypes'];
+                     saveAddBtn.textContent = translations[lang]['save'];
+                     deleteInstrumentBtn.classList.remove('hidden');
+                     instrumentNameInput.value = definition.name;
+                     keywordsInput.value = definition.keywords.join(', ');
+                     imageUploadInput.value = ''; // Clear file input
+                     addInstrumentModal.style.display = 'flex';
+                 }
+             } else {
+                 // Normal filtering mode
+                 document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                 clickedButton.classList.add('active');
+                 handleFilterChanges();
+             }
+        }
+        
+        function handleFilterChanges() {
+            const selectedYear = yearFilter.value;
+            const selectedMonth = monthFilter.value;
+            const allYearsOption = yearFilter.querySelector('option[value="所有年份"]');
+            
+            if (selectedMonth === '所有月份') {
+                if (allYearsOption) {
+                    allYearsOption.disabled = false;
+                }
+            } else {
+                if (allYearsOption) {
+                    allYearsOption.disabled = true;
+                }
+            }
+            
+            if (selectedYear === '所有年份') {
+                monthFilter.disabled = true;
+            } else {
+                monthFilter.disabled = false;
+            }
+            
+            updateUI();
+        }
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            // --- Static Global Controls ---
+            langZhBtn.addEventListener('click', () => {
+                setLanguage('zh');
+                langZhBtn.classList.replace('bg-gray-500', 'bg-blue-500');
+                langEnBtn.classList.replace('bg-blue-500', 'bg-gray-500');
+            });
+            langEnBtn.addEventListener('click', () => {
+                setLanguage('en');
+                langEnBtn.classList.replace('bg-gray-500', 'bg-blue-500');
+                langZhBtn.classList.replace('bg-blue-500', 'bg-gray-500');
+            });
+
+            viewToggleBtn.addEventListener('click', () => {
+                state.isDashboardVisible = !state.isDashboardVisible;
+                updateUI();
+            });
+            
+            // --- Password/Unlock Logic ---
+            logoDisplay.addEventListener('click', (e) => {
+                e.stopPropagation(); // Stop propagation to prevent accidental window clicks from interfering
+                const isCurrentlyCollapsed = collapsibleControls.classList.contains('collapsed');
+                if (isCurrentlyCollapsed) {
+                    passwordInput.value = ''; 
+                    passwordModal.style.display = 'flex';
+                } else {
+                    collapsibleControls.classList.add('collapsed');
+                    isControlsUnlocked = false; 
+                    if (map) { map.invalidateSize(); }
+                }
+            });
+
+            passwordCloseBtn.addEventListener('click', () => {
+                passwordModal.style.display = 'none';
+                passwordInput.value = ''; 
+            });
+            
+            passwordInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    // Use click() to ensure the same logic as the button is executed
+                    passwordSubmitBtn.click();
+                }
+            });
+
+            passwordSubmitBtn.addEventListener('click', () => {
+                const password = passwordInput.value;
+                if (password === ADMIN_PASSWORD) {
+                    isControlsUnlocked = true;
+                    passwordModal.style.display = 'none';
+                    collapsibleControls.classList.remove('collapsed');
+                    showMessage('messagePasswordCorrect');
+                    if (map) { map.invalidateSize(); }
+                } else {
+                    showMessage('messagePasswordError');
+                    passwordInput.value = '';
+                }
+            });
+
+            // --- Modal Open/Close Controls (Check for unlock first) ---
+            mapAdminBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    mapAdminModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            dataUploadBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    dataUploadModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+            
+            addInstrumentBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    editingInstrument = null;
+                    instrumentModalTitle.textContent = translations[lang]['addInstrumentTitle'];
+                    saveAddBtn.textContent = translations[lang]['save'];
+                    deleteInstrumentBtn.classList.add('hidden');
+                    instrumentNameInput.value = '';
+                    keywordsInput.value = '';
+                    imageUploadInput.value = '';
+                    addInstrumentModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            editInstrumentTypesBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    isInstrumentEditingMode = !isInstrumentEditingMode;
+                    if (isInstrumentEditingMode) {
+                        editInstrumentTypesBtn.textContent = translations[lang]['cancel'];
+                        filterButtonsContainer.classList.add('edit-mode-active');
+                        // Ensure no filter is active visually in edit mode
+                        document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                        document.getElementById('all-instruments-btn').classList.add('active');
+                    } else {
+                        editInstrumentTypesBtn.textContent = translations[lang]['editInstrumentTypes'];
+                        filterButtonsContainer.classList.remove('edit-mode-active');
+                    }
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+
+            mapAdminCloseBtn.addEventListener('click', () => { mapAdminModal.style.display = 'none'; });
+            dataUploadCloseBtn.addEventListener('click', () => { dataUploadModal.style.display = 'none'; });
+            addInstrumentCloseBtn.addEventListener('click', () => { addInstrumentModal.style.display = 'none'; });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === mapAdminModal) { mapAdminModal.style.display = 'none'; }
+                if (event.target === dataUploadModal) { dataUploadModal.style.display = 'none'; }
+                if (event.target === addInstrumentModal) { addInstrumentModal.style.display = 'none'; }
+                if (event.target === passwordModal && event.target !== passwordSubmitBtn) { passwordModal.style.display = 'none'; }
+            });
+            
+            // --- Edit/Admin Action Buttons (Data Persistence) ---
+            saveMapAdminBtn.addEventListener('click', async () => {
+                const geojsonFile = geojsonUploadInput.files[0];
+                const logoFile = logoUploadInput.files[0];
+                
+                let changesMade = false;
+
+                if (geojsonFile) {
+                    await handleGeoJSONUpload(geojsonFile);
+                    changesMade = true;
+                }
+                
+                if (logoFile) {
+                    try {
+                        const base64Logo = await readFileAsDataURL(logoFile);
+                        state.logoImage = base64Logo;
+                        logoDisplay.src = base64Logo;
+                        downloadJSON({ logoImage: base64Logo }, DATA_FILES.logo);
+                        changesMade = true;
+                        showMessage("messageCsvSuccess"); 
+                    } catch (e) {
+                        showMessage('messageLogoError');
+                        return;
+                    }
+                }
+                
+                if (changesMade) {
+                    handleFilterChanges();
+                    mapAdminModal.style.display = 'none';
+                } else {
+                    showMessage("messageFileRequired");
+                }
+            });
+            
+            saveMapDataBtn.addEventListener('click', async () => {
+                const csvFile = dataUploadInput.files[0];
+                if (csvFile) {
+                    try {
+                        await handleCSVUpload(csvFile);
+                        populateDateFilters();
+                        handleFilterChanges();
+                        dataUploadModal.style.display = 'none';
+                    } catch (e) {
+                        showMessage(e);
+                        return;
+                    }
+                } else {
+                    showMessage("messageFileRequired");
+                }
+            });
+
+            saveAddBtn.addEventListener('click', async () => {
+                const instrumentName = instrumentNameInput.value.trim();
+                const keywords = keywordsInput.value.split(',').map(k => k.trim()).filter(k => k);
+                const imageFile = imageUploadInput.files[0];
+                
+                if (!instrumentName || keywords.length === 0) {
+                    showMessage('messageNameKeywordsRequired');
+                    return;
+                }
+                
+                const newDefinition = { name: instrumentName, keywords: keywords, image: '' };
+                if (imageFile) {
+                    try {
+                        newDefinition.image = await readFileAsDataURL(imageFile);
+                    } catch (e) {
+                        showMessage('messageLogoError');
+                        return;
+                    }
+                }
+
+                if (editingInstrument) {
+                    if (!newDefinition.image && editingInstrument.image) {
+                        newDefinition.image = editingInstrument.image;
+                    }
+                    state.instrumentDefinitions = state.instrumentDefinitions.map(def => def.name === editingInstrument.name ? newDefinition : def);
+                    showMessage('messageInstrumentUpdated');
+                } else {
+                    state.instrumentDefinitions.push(newDefinition);
+                    showMessage('messageInstrumentAdded');
+                }
+                downloadJSON(state.instrumentDefinitions, DATA_FILES.definitions);
+                renderFilterButtons();
+                handleFilterChanges();
+                addInstrumentModal.style.display = 'none';
+            });
+            
+            deleteInstrumentBtn.addEventListener('click', async () => {
+                if (editingInstrument) {
+                    state.instrumentDefinitions = state.instrumentDefinitions.filter(def => def.name !== editingInstrument.name);
+                    downloadJSON(state.instrumentDefinitions, DATA_FILES.definitions);
+                    showMessage('messageInstrumentDeleted');
+                    renderFilterButtons();
+                    handleFilterChanges();
+                    addInstrumentModal.style.display = 'none';
+                }
+            });
+
+            editModeBtn.addEventListener('click', async () => {
+                if (isControlsUnlocked) {
+                    if (!state.geojsonData || state.allData.length === 0) {
+                        showMessage('messageUploadDataFirst');
+                        return;
+                    }
+                    editControls.classList.remove('hidden');
+                    map.dragging.disable();
+                    renderMap(getFilteredData(), true);
+                    currentDraggedOffsets = { ...state.savedLabelOffsets };
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            saveEditBtn.addEventListener('click', async () => {
+                state.savedLabelOffsets = { ...state.savedLabelOffsets, ...currentDraggedOffsets };
+                downloadJSON(state.savedLabelOffsets, DATA_FILES.offsets);
+                editControls.classList.add('hidden');
+                map.dragging.enable();
+                handleFilterChanges();
+                showMessage('messageSaveLocationSuccess');
+            });
+
+            cancelEditBtn.addEventListener('click', () => {
+                editControls.classList.add('hidden');
+                map.dragging.enable();
+                handleFilterChanges();
+            });
+
+            // --- Filter/UI Controls ---
+            yearFilter.addEventListener('change', handleFilterChanges);
+            monthFilter.addEventListener('change', handleFilterChanges);
+        }
+        
+        // --- Initial App Setup ---
+        
+        async function loadInitialData() {
+            const filePaths = Object.values(DATA_FILES);
+            const promises = filePaths.map(file => 
+                d3.json(file).catch(e => {
+                    console.warn(`Failed to load data file: ${file}`, e);
+                    return null; 
+                })
+            );
+
+            const results = await Promise.all(promises);
+
+            const dataMap = {};
+            filePaths.forEach((file, index) => {
+                dataMap[file] = results[index];
+            });
+
+            // Assign loaded data to the state, falling back to defaults
+            state.instrumentDefinitions = dataMap[DATA_FILES.definitions] || [];
+            state.savedLabelOffsets = dataMap[DATA_FILES.offsets] || {};
+            state.logoImage = dataMap[DATA_FILES.logo]?.logoImage || DEFAULT_LOGO_IMAGE;
+            state.allData = dataMap[DATA_FILES.data] || [];
+            state.geojsonData = dataMap[DATA_FILES.geojson] || null;
+            state.lastUpdated = dataMap[DATA_FILES.updated]?.lastUpdated || null;
+        }
+
+        async function initApp() {
+            // 1. Setup static event listeners immediately
+            setupEventListeners();
+            
+            // 2. Load all asynchronous data
+            await loadInitialData(); 
+            
+            // 3. Update the UI based on loaded data
+            updateLastUpdatedDisplay();
+            logoDisplay.src = state.logoImage;
+            initMap();
+            
+            // 4. Render dynamic elements and attach their specific listeners
+            renderFilterButtons();
+            
+            // 5. Initialize filters and draw map
+            populateDateFilters();
+            handleFilterChanges();
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    })();
+</script>
