@@ -1,419 +1,5 @@
-<!DOCTYPE html>
-<html lang="zh">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title data-i18n="appTitle">全国装机地图</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-        #main-content {
-            flex-grow: 1;
-            display: flex;
-            overflow: hidden;
-        }
-        #map-container {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #000;
-            padding: 1rem;
-            position: relative;
-        }
-        #map {
-            flex-grow: 1;
-            background-color: #000;
-        }
-        #sidebar {
-            width: 300px;
-            background-color: #000;
-            color: white;
-            padding: 2rem;
-            box-shadow: -2px 0 5px rgba(0, 0, 0, 0.5);
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-        .filter-button {
-            background-color: #4a5568;
-            color: white;
-            padding: 0.75rem;
-            border-radius: 0.5rem;
-            margin-bottom: 0.5rem;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.1s;
-        }
-        .filter-button:hover {
-            background-color: #718096;
-            transform: scale(1.02);
-        }
-        .filter-button.active {
-            background-color: #4299e1;
-            box-shadow: 0 0 10px #4299e1;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.6);
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background-color: #2d3748;
-            padding: 2rem;
-            border-radius: 0.5rem;
-            width: 90%;
-            max-width: 500px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-            color: white;
-        }
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-        .close-button {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            color: white;
-            cursor: pointer;
-        }
-        .input-group {
-            margin-bottom: 1rem;
-        }
-        .transparent-label {
-            background-color: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
-        #edit-controls {
-            position: fixed;
-            bottom: 1rem;
-            right: 1rem;
-            z-index: 999;
-        }
-        #edit-controls button {
-            margin-left: 0.5rem;
-        }
-        .filter-button img {
-            max-width: 100%;
-            height: auto;
-            max-height: 50px;
-            margin-bottom: 0.5rem;
-        }
-        .message-modal {
-            background-color: #2d3748;
-            padding: 1rem 2rem;
-            border-radius: 0.5rem;
-            max-width: 400px;
-            text-align: center;
-            color: white;
-        }
-        /* New styles for edit mode */
-        .edit-mode-active .filter-button:not(#all-instruments-btn) {
-            border: 2px solid #f9a8d4;
-            box-shadow: 0 0 10px #f9a8d4;
-            transform: scale(1.02);
-        }
-        .edit-mode-active .filter-button.active {
-            background-color: #4a5568; /* Deactivate blue color in edit mode */
-            box-shadow: none;
-        }
-
-        /* Collapsible controls styling */
-        #collapsible-controls {
-            max-height: 200px; /* Adjust based on content */
-            overflow-y: auto;
-            overflow-x: hidden;
-            transition: max-height 0.3s ease-in-out;
-            scrollbar-width: thin;
-            scrollbar-color: #4a5568 #2d3748;
-        }
-        #collapsible-controls.collapsed {
-            max-height: 0;
-        }
-        #toggle-icon.rotated {
-            transform: rotate(45deg);
-        }
-        #instrument-details-container {
-            width: 100%;
-            max-height: 14rem;
-            overflow-y: auto;
-            padding: 1rem;
-            background-color: #1a202c;
-            color: white;
-            border-top: 1px solid #4a5568;
-        }
-        .details-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.875rem;
-        }
-        .details-table th, .details-table td {
-            border: 1px solid #4a5568;
-            padding: 0.75rem;
-            text-align: left;
-        }
-        .details-table th {
-            background-color: #2d3748;
-            font-weight: bold;
-        }
-        #dashboard-chart-container {
-            height: 200px;
-            width: 100%;
-        }
-        .leaflet-container .leaflet-control-attribution {
-            display: none;
-        }
-        .tech-button {
-            position: relative;
-            background: linear-gradient(145deg, #1f2937, #111827);
-            border: 1px solid #374151;
-            color: #d1d5db;
-            padding: 0.5rem 0.75rem;
-            font-size: 0.875rem;
-            border-radius: 12px;
-            font-weight: bold;
-            text-shadow: 1px 1px 2px #000;
-            box-shadow: 5px 5px 10px #0a0e14, -5px -5px 10px #242c38;
-            transition: all 0.2s ease;
-        }
-        .tech-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 8px 8px 15px #0a0e14, -8px -8px 15px #242c38;
-            color: #fff;
-        }
-        .tech-button:active {
-            transform: translateY(1px);
-            box-shadow: inset 3px 3px 5px #0a0e14, inset -3px -3px 5px #242c38;
-        }
-        .map-style {
-            fill: #0077b6;
-            stroke: #fff;
-            stroke-width: 1;
-            fill-opacity: 0.7;
-            transition: fill-opacity 0.3s;
-            filter: drop-shadow(0 0 5px rgba(0, 119, 182, 0.5));
-            -webkit-filter: drop-shadow(0 0 5px rgba(0, 119, 182, 0.5));
-            transform-origin: center center;
-            transform: rotateX(15deg) translateZ(0);
-        }
-        .map-glow {
-            animation: pulse-glow 2s infinite;
-        }
-
-        @keyframes pulse-glow {
-            0% { box-shadow: 0 0 10px #4299e1, 0 0 20px #4299e1; }
-            50% { box-shadow: 0 0 15px #4299e1, 0 0 30px #4299e1; }
-            100% { box-shadow: 0 0 10px #4299e1, 0 0 20px #4299e1; }
-        }
-        
-    </style>
-</head>
-<body>
-
-<div id="main-content">
-    <div id="sidebar">
-        <div class="flex flex-col items-center">
-            <img id="logo-display" src="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChAKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAEBAQICASIAAhEBAQED/8QAHwAAAQUBAQEBAQEBAAAAAAAAAAECAwQFBgcICQoLAQACAgMVBQEBAQEBAAAAAAAAAAECAwQFBgcICQoLEAAB" alt="Logo" class="w-24 h-24 mb-4 cursor-pointer">
-            <div id="collapsible-controls" class="space-y-2 collapsed">
-                <button id="data-upload-btn" class="w-full tech-button mb-2" data-i18n="dataUploadButton">
-                    装机数据上传
-                </button>
-                <button id="edit-mode-btn" class="w-full tech-button mb-2" data-i18n="mapEdit">
-                    地图编辑
-                </button>
-                <button id="add-instrument-btn" class="w-full tech-button mb-2" data-i18n="addInstrumentType">
-                    新增仪器类型
-                </button>
-                <button id="edit-instrument-types-btn" class="w-full tech-button mb-2" data-i18n="editInstrumentTypes">
-                    编辑仪器类型
-                </button>
-                <button id="map-admin-btn" class="w-full tech-button mb-2" data-i18n="mapAdminButton">
-                    地图管理
-                </button>
-                <button id="export-standalone-btn" class="w-full tech-button" data-i18n="exportStandalone">
-                    发布单机页面
-                </button>
-            </div>
-        </div>
-        <div class="flex items-center justify-center mb-4 space-x-2">
-            <button id="lang-zh-btn" class="tech-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-3 rounded-lg">中文</button>
-            <button id="lang-en-btn" class="tech-button bg-gray-500 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-lg">EN</button>
-        </div>
-        <div class="flex flex-col space-y-2 mb-4">
-            <div>
-                <label for="year-filter" class="block text-sm font-medium text-gray-400" data-i18n="selectYear">选择年份</label>
-                <select id="year-filter" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white"></select>
-            </div>
-            <div>
-                <label for="month-filter" class="block text-sm font-medium text-gray-400" data-i18n="selectMonth">选择月份</label>
-                <select id="month-filter" class="w-full mt-1 px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white"></select>
-            </div>
-        </div>
-        <div id="filter-buttons-container" class="flex flex-col space-y-2">
-            <button id="all-instruments-btn" class="filter-button active" data-name="all" data-i18n="allInstruments">所有仪器</button>
-        </div>
-
-        <div class="mt-auto pt-6">
-            
-        </div>
-    </div>
-
-    <div id="map-container">
-        <div class="bg-gray-800 text-white text-center p-4 rounded-lg mb-4" style="background-color: transparent;">
-            <h1 class="text-3xl font-bold" data-i18n="mapTitle">IOA仪器中国装机地图</h1>
-            <p class="text-sm mt-1" id="total-count-display" data-i18n="totalCount">全国装机数量: 0</p>
-            <p class="text-xs mt-1 text-gray-400" id="last-updated-display" data-i18n="lastUpdated">数据未更新</p>
-        </div>
-        <div id="map" class="rounded-lg"></div>
-    </div>
-</div>
-
-<div id="instrument-details-container" class="mt-4 p-4 text-white">
-    <div class="flex justify-between items-center mb-2">
-        <h2 class="text-xl font-bold" id="details-view-title" data-i18n="detailsTitle">仪器明细</h2>
-        <button id="view-toggle-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-1 px-3 rounded-full text-sm transition-colors">
-            <span data-i18n="dashboardBtn">仪表盘</span>
-        </button>
-    </div>
-    <div id="details-view-content">
-        <div id="details-table-content" class="bg-gray-800 rounded-lg p-4">
-            <span data-i18n="detailsPlaceholder">请在地图上点击一个省份来查看装机明细。</span>
-        </div>
-        <div id="dashboard-content" class="bg-gray-800 rounded-lg p-4 hidden">
-            <div id="dashboard-chart-container" class="w-full h-80"></div>
-        </div>
-    </div>
-</div>
-
-<div id="edit-controls" class="hidden">
-    <button id="save-edit-btn" class="tech-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full" data-i18n="save">
-        保存
-    </button>
-    <button id="cancel-edit-btn" class="tech-button bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-full" data-i18n="cancel">
-        取消
-    </button>
-</div>
-
-<div id="map-admin-modal" class="modal hidden">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="text-lg font-bold" data-i18n="mapAdminTitle">地图管理</h3>
-            <span class="close-button" id="map-admin-close-btn">&times;</span>
-        </div>
-        <div class="input-group">
-            <label for="geojson-upload" class="block text-sm font-medium mb-1" data-i18n="uploadGeojsonData">上传地理数据文件 (.geojson)</label>
-            <input type="file" id="geojson-upload" accept=".geojson" class="w-full text-white">
-        </div>
-        <div class="input-group">
-            <label for="logo-upload" class="block text-sm font-medium mb-1" data-i18n="uploadLogo">上传Logo图片 (.png, .jpg, .jpeg)</label>
-            <input type="file" id="logo-upload" accept=".png, .jpg, .jpeg" class="w-full text-white">
-        </div>
-        <div class="flex flex-col space-y-2 mt-4">
-            <button id="save-map-admin-btn" class="w-full tech-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full" data-i18n="save">
-                保存
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="data-upload-modal" class="modal hidden">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="text-lg font-bold" data-i18n="dataUploadTitle">装机数据上传</h3>
-            <span class="close-button" id="data-upload-close-btn">&times;</span>
-        </div>
-        <div class="input-group">
-            <label for="data-upload" class="block text-sm font-medium mb-1" data-i18n="uploadDataFile">上传数据文件 (.csv)</label>
-            <input type="file" id="data-upload" accept=".csv" class="w-full text-white">
-        </div>
-        <div class="flex flex-col space-y-2 mt-4">
-            <button id="save-data-upload-btn" class="w-full tech-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full" data-i18n="save">
-                保存
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="add-instrument-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="text-lg font-bold" id="instrument-modal-title" data-i18n="addInstrumentTitle">新增仪器类型</h3>
-            <span class="close-button" id="add-instrument-close-btn">&times;</span>
-        </div>
-        <div class="input-group">
-            <label for="instrument-name" class="block text-sm font-medium mb-1" data-i18n="instrumentTypeName">仪器类型名称</label>
-            <input type="text" id="instrument-name" class="w-full px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="请输入仪器类型名称">
-        </div>
-        <div class="input-group">
-            <label for="keywords" class="block text-sm font-medium mb-1" data-i18n="keywordsLabel">关键词 (多个用逗号分隔)</label>
-            <input type="text" id="keywords" class="w-full px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="例如: 关键词1,关键词2">
-        </div>
-        <div class="input-group">
-            <label for="image-upload" class="block text-sm font-medium mb-1" data-i18n="uploadImage">上传图片 (.png, .jpg, .jpeg)</label>
-            <input type="file" id="image-upload" accept=".png, .jpg, .jpeg" class="w-full text-white">
-        </div>
-        <div class="flex justify-between mt-4">
-            <button id="save-add-btn" class="w-1/2 tech-button bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-full mr-2" data-i18n="save">
-                保存
-            </button>
-            <button id="delete-instrument-btn" class="w-1/2 tech-button bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full ml-2 hidden" data-i18n="delete">
-                删除
-            </button>
-        </div>
-    </div>
-</div>
-
-<div id="password-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="text-lg font-bold" data-i18n="passwordPromptTitle">输入密码</h3>
-            <span class="close-button" id="password-close-btn">&times;</span>
-        </div>
-        <div class="input-group">
-            <label for="password-input" class="block text-sm font-medium mb-1" data-i18n="passwordLabel">请输入密码</label>
-            <input type="password" id="password-input" class="w-full px-3 py-2 rounded-lg bg-gray-700 border border-gray-600 text-white" placeholder="******">
-        </div>
-        <button id="password-submit-btn" class="w-full tech-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full mt-4" data-i18n="confirm">
-            确认
-        </button>
-    </div>
-</div>
-
-<div id="message-modal" class="modal">
-    <div class="message-modal rounded-lg p-6">
-        <p id="message-text"></p>
-    </div>
-</div>
-
 <script>
     (function() {
-        // ------------------ 更改：移除 IndexedDB 相关配置 ------------------
-        // const DB_NAME = 'ioaInstrumentDB';
-        // const DB_VERSION = 1;
-        // let db;
-        
         const ADMIN_PASSWORD = '12345678';
         const DATA_FILES = {
             definitions: 'instrumentDefinitions.json',
@@ -556,7 +142,6 @@
 
         // --- Static configurations and global state ---
         let map, geojsonLayer, markerGroup, currentDraggedOffsets = {};
-        // 更改：默认 Logo 图像使用原始的 base64 字符串
         const DEFAULT_LOGO_IMAGE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChAKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAEBAQICASIAAhEBAQED/8QAHwAAAQUBAQEBAQEBAAAAAAAAAAECAwQFBgcICQoLAQACAgMVBQEBAQEBAAAAAAAAAAECAwQFBgcICQoLEAAB';
         let state = {
             instrumentDefinitions: [],
@@ -578,7 +163,7 @@
             'macau': [22.19, 113.54]
         };
 
-        // --- DOM element references (保持不变) ---
+        // --- DOM element references ---
         const mapAdminModal = document.getElementById('map-admin-modal');
         const mapAdminBtn = document.getElementById('map-admin-btn');
         const mapAdminCloseBtn = document.getElementById('map-admin-close-btn');
@@ -638,7 +223,6 @@
 
         // --- Utility Functions ---
         
-        // 更改：新增下载函数，用于管理员保存数据
         function downloadJSON(data, filename) {
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
             const downloadAnchorNode = document.createElement('a');
@@ -663,8 +247,9 @@
                     }
                 }
             });
-            populateDateFilters(); // Update dropdown options with correct language
-            handleFilterChanges(); // Re-render the UI
+            // 确保在语言切换后重新渲染
+            populateDateFilters(); 
+            handleFilterChanges(); 
         }
 
         function showMessage(messageKey, ...args) {
@@ -676,7 +261,7 @@
             messageModal.style.display = 'flex';
             setTimeout(() => {
                 messageModal.style.display = 'none';
-            }, 8000); // 更改：消息显示时间延长，以确保管理员看到上传提示
+            }, 8000); 
         }
 
         async function readFileAsDataURL(file) {
@@ -702,7 +287,6 @@
             try {
                 const text = await readFileAsText(file);
                 state.geojsonData = JSON.parse(text);
-                // 更改：不再保存到 IndexedDB，而是提示下载
                 downloadJSON(state.geojsonData, DATA_FILES.geojson);
                 showMessage('messageGeojsonSuccess');
             } catch (e) {
@@ -731,7 +315,7 @@
                     },
                     complete: async (results) => {
                         const columns = results.meta.fields;
-                        console.log("Parsed CSV headers:", columns); // For debugging purposes
+                        console.log("Parsed CSV headers:", columns); 
                         const missingCols = expectedDataColumns.filter(col => !columns.includes(col));
                         if (missingCols.length > 0) {
                             reject(translations[lang]['messageCsvMissingCols'](missingCols.join(', ')));
@@ -748,11 +332,9 @@
                             return row;
                         });
                         
-                        // 更改：不再保存到 IndexedDB
                         const now = new Date().toISOString();
                         state.lastUpdated = now;
                         
-                        // 提示管理员下载并上传文件
                         downloadJSON(state.allData, DATA_FILES.data);
                         downloadJSON({ lastUpdated: now }, DATA_FILES.updated);
                         
@@ -767,14 +349,12 @@
             });
         }
         
-        async function updateLastUpdatedDisplay() {
-            // 更改：直接使用 state 中的值
+        function updateLastUpdatedDisplay() {
             const lastUpdated = state.lastUpdated; 
             lastUpdatedDisplay.textContent = translations[lang]['lastUpdated'](lastUpdated);
         }
 
         function populateDateFilters() {
-            // ... (此函数保持不变，因为它只读取 state.allData)
             const years = new Set(['所有年份']);
             const months = new Set(['所有月份']);
             state.allData.forEach(row => {
@@ -795,18 +375,17 @@
             const allYearsOption = yearFilter.querySelector('option[value="所有年份"]');
             if (allYearsOption) {
                 allYearsOption.textContent = translations[lang]['selectYear'].includes('年') ? '所有年份' : 'All Years';
-                yearFilter.value = '所有年份'; // Default to Chinese value
+                yearFilter.value = '所有年份'; 
             }
             
             const allMonthsOption = monthFilter.querySelector('option[value="所有月份"]');
             if (allMonthsOption) {
                 allMonthsOption.textContent = translations[lang]['selectMonth'].includes('月') ? '所有月份' : 'All Months';
-                monthFilter.value = '所有月份'; // Default to Chinese value
+                monthFilter.value = '所有月份'; 
             }
         }
         
         function getFilteredData() {
-            // ... (此函数保持不变)
             const selectedInstrument = document.querySelector('.filter-button.active')?.dataset.name;
             const selectedYear = yearFilter.value;
             const selectedMonth = monthFilter.value;
@@ -844,7 +423,6 @@
         }
 
         function renderInstrumentDetails(provincePinyin) {
-            // ... (此函数保持不变)
             const filteredData = getFilteredData();
             const provinceData = filteredData.filter(row => row['省份拼音']?.toLowerCase()?.trim() === provincePinyin);
             
@@ -886,7 +464,6 @@
         }
 
         function getInstallationDataByDate() {
-            // ... (此函数保持不变)
             const filteredData = getFilteredData();
             const selectedYear = yearFilter.value;
             const selectedMonth = monthFilter.value;
@@ -952,7 +529,6 @@
         }
 
         function renderDashboardChart() {
-            // ... (此函数保持不变)
             const data = getInstallationDataByDate();
             dashboardChartContainer.innerHTML = '';
             
@@ -1039,7 +615,7 @@
                 .text(d => d.count);
         }
 
-        // --- Map Initialization & Rendering Logic (保持不变) ---
+        // --- Map Initialization & Rendering Logic ---
         function initMap() {
             if (map && map.getContainer()) {
                 map.remove();
@@ -1059,10 +635,528 @@
 
             markerGroup = L.layerGroup().addTo(map);
 
-            // Invalidate size to fix rendering issues
             map.invalidateSize();
         }
 
         function renderMap(filteredData, isEditable = false) {
-            // ... (此函数保持不变，它只依赖 state 变量)
-            if (geojsonLayer
+            if (geojsonLayer) {
+                geojsonLayer.remove();
+            }
+            markerGroup.clearLayers();
+
+            if (!state.geojsonData || state.allData.length === 0) {
+                mapElement.innerHTML = `<div class="p-4 text-center text-white" data-i18n="uploadDataFirst">${translations[lang]['uploadDataFirst']}</div>`;
+                return;
+            }
+
+            const provinceCounts = filteredData.reduce((acc, row) => {
+                const provincePinyin = row['省份拼音']?.toLowerCase()?.trim();
+                if (provincePinyin) {
+                    acc[provincePinyin] = (acc[provincePinyin] || 0) + 1;
+                }
+                return acc;
+            }, {});
+
+            if (totalCountDisplay) {
+                totalCountDisplay.innerHTML = translations[lang]['totalCount'](filteredData.length);
+            }
+
+            geojsonLayer = L.geoJSON(state.geojsonData, {
+                style: (feature) => {
+                    const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                    const style = {
+                        fillColor: '#0077b6',
+                        weight: 1,
+                        opacity: 1,
+                        color: 'white',
+                        fillOpacity: 0.7,
+                    };
+                    if (pinyin && pinyin === selectedProvincePinyin) {
+                        style.fillColor = '#800080';
+                        style.fillOpacity = 1;
+                    }
+                    return style;
+                },
+                onEachFeature: (feature, layer) => {
+                    layer.on('mouseover', () => {
+                         layer.setStyle({
+                             fillOpacity: 0.9,
+                         });
+                    });
+                    layer.on('mouseout', () => {
+                        const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                        if (pinyin !== selectedProvincePinyin) {
+                            layer.setStyle({
+                                fillOpacity: 0.7,
+                            });
+                        }
+                    });
+                    
+                    const provincePinyin = feature.properties.pinyin?.toLowerCase().trim();
+                    const provinceName = lang === 'en' ? feature.properties.pinyin : feature.properties.name;
+                    const count = provinceCounts[provincePinyin] || 0;
+                    
+                    let center = layer.getBounds().getCenter();
+                    let labelPos = state.savedLabelOffsets[provincePinyin] || defaultLabelOffsets[provincePinyin] || center;
+
+                    // Only create markers for provinces with a count greater than 0, or in edit mode
+                    if (count > 0 || isEditable) {
+                        const label = L.divIcon({
+                            className: 'text-white font-bold text-center transparent-label',
+                            html: `<div>${provinceName}<br>${count}</div>`,
+                            iconSize: [100, 36],
+                        });
+                        
+                        const marker = L.marker(labelPos, { 
+                            icon: label,
+                            draggable: isEditable,
+                            provincePinyin: provincePinyin
+                        }).addTo(markerGroup);
+
+                        if (isEditable) {
+                            marker.on('dragstart', () => {
+                                map.dragging.disable();
+                            });
+                            marker.on('dragend', (e) => {
+                                const newPos = e.target.getLatLng();
+                                currentDraggedOffsets[provincePinyin] = [newPos.lat, newPos.lng];
+                                map.dragging.enable();
+                            });
+                        }
+                    }
+                    if (!isEditable) {
+                        layer.on('click', () => {
+                            const pinyin = feature.properties.pinyin?.toLowerCase().trim();
+                            if (pinyin === selectedProvincePinyin) {
+                                // Deselect the current province
+                                selectedProvincePinyin = null;
+                            } else {
+                                // Select a new province
+                                selectedProvincePinyin = pinyin;
+                            }
+                            handleFilterChanges();
+                        });
+                    }
+                }
+            }).addTo(map);
+        }
+
+        function updateUI() {
+            // First, update the map
+            initMap();
+            const filteredData = getFilteredData();
+            renderMap(filteredData);
+            
+            // Then, update the details/dashboard view
+            if (state.isDashboardVisible) {
+                detailsViewTitle.textContent = translations[lang]['dashboardTitle'];
+                viewToggleBtn.querySelector('span').textContent = translations[lang]['detailsBtn'];
+                detailsTableContent.classList.add('hidden');
+                dashboardContent.classList.remove('hidden');
+                renderDashboardChart();
+            } else {
+                detailsViewTitle.textContent = translations[lang]['detailsTitle'];
+                viewToggleBtn.querySelector('span').textContent = translations[lang]['dashboardBtn'];
+                detailsTableContent.classList.remove('hidden');
+                dashboardContent.classList.add('hidden');
+                if (selectedProvincePinyin) {
+                    renderInstrumentDetails(selectedProvincePinyin);
+                } else {
+                    detailsContainer.innerHTML = `<div class="bg-gray-800 rounded-lg p-4"><span data-i18n="detailsPlaceholder">${translations[lang]['detailsPlaceholder']}</span></div>`;
+                }
+            }
+             // Ensure map resizes after UI changes
+            if (map) {
+                map.invalidateSize();
+            }
+        }
+        
+        function renderFilterButtons() {
+            filterButtonsContainer.innerHTML = `<button id="all-instruments-btn" class="filter-button active" data-name="all" data-i18n="allInstruments">${translations[lang]['allInstruments']}</button>`;
+
+            // Attach event listener to the static 'All Instruments' button
+            document.getElementById('all-instruments-btn').addEventListener('click', () => {
+                document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                document.getElementById('all-instruments-btn').classList.add('active');
+                handleFilterChanges();
+            });
+
+            state.instrumentDefinitions.forEach((def, index) => {
+                const button = document.createElement('button');
+                button.className = 'filter-button flex flex-col items-center p-2';
+                button.setAttribute('data-name', def.name);
+                button.setAttribute('data-index', index);
+                button.innerHTML = `
+                    ${def.image ? `<img src="${def.image}" class="w-16 h-16 object-contain mb-1">` : ''}
+                    <span class="text-sm">${def.name}</span>
+                `;
+                filterButtonsContainer.appendChild(button);
+            });
+            
+            // Re-apply active state or default to 'All Instruments'
+            document.getElementById('all-instruments-btn').classList.add('active');
+
+            // IMPORTANT: Re-attach event listener to the container for filtering and editing
+            filterButtonsContainer.removeEventListener('click', handleFilterButtonClicks);
+            filterButtonsContainer.addEventListener('click', handleFilterButtonClicks);
+        }
+
+        // Consolidated handler for all filter button clicks
+        function handleFilterButtonClicks(e) {
+             const clickedButton = e.target.closest('.filter-button');
+             if (!clickedButton) return;
+             
+             if (isInstrumentEditingMode) {
+                 const instrumentName = clickedButton.getAttribute('data-name');
+                 if (instrumentName === 'all') {
+                     showMessage('messageAllInstrumentsImmutable');
+                     return;
+                 }
+                 
+                 const definition = state.instrumentDefinitions.find(def => def.name === instrumentName);
+                 if (definition) {
+                     editingInstrument = definition;
+                     instrumentModalTitle.textContent = translations[lang]['editInstrumentTypes'];
+                     saveAddBtn.textContent = translations[lang]['save'];
+                     deleteInstrumentBtn.classList.remove('hidden');
+                     instrumentNameInput.value = definition.name;
+                     keywordsInput.value = definition.keywords.join(', ');
+                     imageUploadInput.value = ''; // Clear file input
+                     addInstrumentModal.style.display = 'flex';
+                 }
+             } else {
+                 // Normal filtering mode
+                 document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                 clickedButton.classList.add('active');
+                 handleFilterChanges();
+             }
+        }
+        
+        function handleFilterChanges() {
+            const selectedYear = yearFilter.value;
+            const selectedMonth = monthFilter.value;
+            const allYearsOption = yearFilter.querySelector('option[value="所有年份"]');
+            
+            // Rule 3: If "所有月份" is selected, enable "所有年份" option
+            if (selectedMonth === '所有月份') {
+                if (allYearsOption) {
+                    allYearsOption.disabled = false;
+                }
+            } else {
+                if (allYearsOption) {
+                    allYearsOption.disabled = true;
+                }
+            }
+            
+            // Rule 1 & 2: If "所有年份" is selected, disable month filter.
+            if (selectedYear === '所有年份') {
+                monthFilter.disabled = true;
+            } else {
+                monthFilter.disabled = false;
+            }
+            
+            updateUI();
+        }
+
+        // --- Event Listeners Setup ---
+        function setupEventListeners() {
+            // --- Static Global Controls ---
+            langZhBtn.addEventListener('click', () => {
+                setLanguage('zh');
+                langZhBtn.classList.replace('bg-gray-500', 'bg-blue-500');
+                langEnBtn.classList.replace('bg-blue-500', 'bg-gray-500');
+            });
+            langEnBtn.addEventListener('click', () => {
+                setLanguage('en');
+                langEnBtn.classList.replace('bg-gray-500', 'bg-blue-500');
+                langZhBtn.classList.replace('bg-blue-500', 'bg-gray-500');
+            });
+
+            viewToggleBtn.addEventListener('click', () => {
+                state.isDashboardVisible = !state.isDashboardVisible;
+                updateUI();
+            });
+            
+            // --- Password/Unlock Logic ---
+            logoDisplay.addEventListener('click', () => {
+                const isCurrentlyCollapsed = collapsibleControls.classList.contains('collapsed');
+                if (isCurrentlyCollapsed) {
+                    passwordInput.value = ''; 
+                    passwordModal.style.display = 'flex';
+                } else {
+                    collapsibleControls.classList.add('collapsed');
+                    isControlsUnlocked = false; 
+                    if (map) { map.invalidateSize(); }
+                }
+            });
+
+            passwordCloseBtn.addEventListener('click', () => {
+                passwordModal.style.display = 'none';
+                passwordInput.value = ''; 
+            });
+            
+            passwordInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    passwordSubmitBtn.click();
+                }
+            });
+
+            passwordSubmitBtn.addEventListener('click', () => {
+                const password = passwordInput.value;
+                if (password === ADMIN_PASSWORD) {
+                    isControlsUnlocked = true;
+                    passwordModal.style.display = 'none';
+                    collapsibleControls.classList.remove('collapsed');
+                    showMessage('messagePasswordCorrect');
+                    if (map) { map.invalidateSize(); }
+                } else {
+                    showMessage('messagePasswordError');
+                    passwordInput.value = '';
+                }
+            });
+
+            // --- Modal Open/Close Controls ---
+            mapAdminBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    mapAdminModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            dataUploadBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    dataUploadModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+            
+            addInstrumentBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    editingInstrument = null;
+                    instrumentModalTitle.textContent = translations[lang]['addInstrumentTitle'];
+                    saveAddBtn.textContent = translations[lang]['save'];
+                    deleteInstrumentBtn.classList.add('hidden');
+                    instrumentNameInput.value = '';
+                    keywordsInput.value = '';
+                    imageUploadInput.value = '';
+                    addInstrumentModal.style.display = 'flex';
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            mapAdminCloseBtn.addEventListener('click', () => { mapAdminModal.style.display = 'none'; });
+            dataUploadCloseBtn.addEventListener('click', () => { dataUploadModal.style.display = 'none'; });
+            addInstrumentCloseBtn.addEventListener('click', () => { addInstrumentModal.style.display = 'none'; });
+
+            window.addEventListener('click', (event) => {
+                if (event.target === mapAdminModal) { mapAdminModal.style.display = 'none'; }
+                if (event.target === dataUploadModal) { dataUploadModal.style.display = 'none'; }
+                if (event.target === addInstrumentModal) { addInstrumentModal.style.display = 'none'; }
+                if (event.target === passwordModal && event.target !== passwordSubmitBtn) { passwordModal.style.display = 'none'; }
+            });
+            
+            // --- Edit/Admin Action Buttons (Data Persistence) ---
+            saveMapAdminBtn.addEventListener('click', async () => {
+                const geojsonFile = geojsonUploadInput.files[0];
+                const logoFile = logoUploadInput.files[0];
+                
+                let changesMade = false;
+
+                if (geojsonFile) {
+                    await handleGeoJSONUpload(geojsonFile);
+                    changesMade = true;
+                }
+                
+                if (logoFile) {
+                    try {
+                        const base64Logo = await readFileAsDataURL(logoFile);
+                        state.logoImage = base64Logo;
+                        logoDisplay.src = base64Logo;
+                        downloadJSON({ logoImage: base64Logo }, DATA_FILES.logo);
+                        changesMade = true;
+                        showMessage("messageCsvSuccess"); 
+                    } catch (e) {
+                        showMessage('messageLogoError');
+                        return;
+                    }
+                }
+                
+                if (changesMade) {
+                    handleFilterChanges();
+                    mapAdminModal.style.display = 'none';
+                } else {
+                    showMessage("messageFileRequired");
+                }
+            });
+            
+            saveMapDataBtn.addEventListener('click', async () => {
+                const csvFile = dataUploadInput.files[0];
+                if (csvFile) {
+                    try {
+                        await handleCSVUpload(csvFile);
+                        populateDateFilters();
+                        handleFilterChanges();
+                        dataUploadModal.style.display = 'none';
+                    } catch (e) {
+                        showMessage(e);
+                        return;
+                    }
+                } else {
+                    showMessage("messageFileRequired");
+                }
+            });
+
+            saveAddBtn.addEventListener('click', async () => {
+                const instrumentName = instrumentNameInput.value.trim();
+                const keywords = keywordsInput.value.split(',').map(k => k.trim()).filter(k => k);
+                const imageFile = imageUploadInput.files[0];
+                
+                if (!instrumentName || keywords.length === 0) {
+                    showMessage('messageNameKeywordsRequired');
+                    return;
+                }
+                
+                const newDefinition = { name: instrumentName, keywords: keywords, image: '' };
+                if (imageFile) {
+                    try {
+                        newDefinition.image = await readFileAsDataURL(imageFile);
+                    } catch (e) {
+                        showMessage('messageLogoError');
+                        return;
+                    }
+                }
+
+                if (editingInstrument) {
+                    if (!newDefinition.image && editingInstrument.image) {
+                        newDefinition.image = editingInstrument.image;
+                    }
+                    state.instrumentDefinitions = state.instrumentDefinitions.map(def => def.name === editingInstrument.name ? newDefinition : def);
+                    showMessage('messageInstrumentUpdated');
+                } else {
+                    state.instrumentDefinitions.push(newDefinition);
+                    showMessage('messageInstrumentAdded');
+                }
+                downloadJSON(state.instrumentDefinitions, DATA_FILES.definitions);
+                renderFilterButtons();
+                handleFilterChanges();
+                addInstrumentModal.style.display = 'none';
+            });
+            
+            deleteInstrumentBtn.addEventListener('click', async () => {
+                if (editingInstrument) {
+                    state.instrumentDefinitions = state.instrumentDefinitions.filter(def => def.name !== editingInstrument.name);
+                    downloadJSON(state.instrumentDefinitions, DATA_FILES.definitions);
+                    showMessage('messageInstrumentDeleted');
+                    renderFilterButtons();
+                    handleFilterChanges();
+                    addInstrumentModal.style.display = 'none';
+                }
+            });
+
+            editModeBtn.addEventListener('click', async () => {
+                if (isControlsUnlocked) {
+                    if (!state.geojsonData || state.allData.length === 0) {
+                        showMessage('messageUploadDataFirst');
+                        return;
+                    }
+                    editControls.classList.remove('hidden');
+                    map.dragging.disable();
+                    renderMap(getFilteredData(), true);
+                    currentDraggedOffsets = { ...state.savedLabelOffsets };
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+
+            saveEditBtn.addEventListener('click', async () => {
+                state.savedLabelOffsets = { ...state.savedLabelOffsets, ...currentDraggedOffsets };
+                downloadJSON(state.savedLabelOffsets, DATA_FILES.offsets);
+                editControls.classList.add('hidden');
+                map.dragging.enable();
+                handleFilterChanges();
+                showMessage('messageSaveLocationSuccess');
+            });
+
+            cancelEditBtn.addEventListener('click', () => {
+                editControls.classList.add('hidden');
+                map.dragging.enable();
+                handleFilterChanges();
+            });
+
+            // --- Filter/UI Controls ---
+            yearFilter.addEventListener('change', handleFilterChanges);
+            monthFilter.addEventListener('change', handleFilterChanges);
+
+            editInstrumentTypesBtn.addEventListener('click', () => {
+                if (isControlsUnlocked) {
+                    isInstrumentEditingMode = !isInstrumentEditingMode;
+                    if (isInstrumentEditingMode) {
+                        editInstrumentTypesBtn.textContent = translations[lang]['cancel'];
+                        filterButtonsContainer.classList.add('edit-mode-active');
+                        document.querySelectorAll('.filter-button').forEach(btn => btn.classList.remove('active'));
+                        document.getElementById('all-instruments-btn').classList.add('active');
+                    } else {
+                        editInstrumentTypesBtn.textContent = translations[lang]['editInstrumentTypes'];
+                        filterButtonsContainer.classList.remove('edit-mode-active');
+                    }
+                } else {
+                    showMessage('messageUnlockRequired');
+                }
+            });
+            
+            // Note: The click listener for filter buttons is attached in renderFilterButtons now.
+        }
+        
+        // --- Initial App Setup ---
+        
+        async function loadInitialData() {
+            const filePaths = Object.values(DATA_FILES);
+            const promises = filePaths.map(file => 
+                d3.json(file).catch(e => {
+                    console.warn(`Failed to load data file: ${file}`, e);
+                    return null; 
+                })
+            );
+
+            const results = await Promise.all(promises);
+
+            const dataMap = {};
+            filePaths.forEach((file, index) => {
+                dataMap[file] = results[index];
+            });
+
+            // Assign loaded data to the state, falling back to defaults
+            state.instrumentDefinitions = dataMap[DATA_FILES.definitions] || [];
+            state.savedLabelOffsets = dataMap[DATA_FILES.offsets] || {};
+            state.logoImage = dataMap[DATA_FILES.logo]?.logoImage || DEFAULT_LOGO_IMAGE;
+            state.allData = dataMap[DATA_FILES.data] || [];
+            state.geojsonData = dataMap[DATA_FILES.geojson] || null;
+            state.lastUpdated = dataMap[DATA_FILES.updated]?.lastUpdated || null;
+        }
+
+        async function initApp() {
+            // 1. Setup static event listeners immediately (like password, modal close, language)
+            setupEventListeners();
+            
+            // 2. Load all asynchronous data
+            await loadInitialData(); 
+            
+            // 3. Update the UI based on loaded data
+            updateLastUpdatedDisplay();
+            logoDisplay.src = state.logoImage;
+            initMap();
+            
+            // 4. Render dynamic elements and attach their specific listeners
+            renderFilterButtons();
+            
+            // 5. Initialize filters and draw map
+            populateDateFilters();
+            handleFilterChanges();
+        }
+
+        document.addEventListener('DOMContentLoaded', initApp);
+    })();
+</script>
